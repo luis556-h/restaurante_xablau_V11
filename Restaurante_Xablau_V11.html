@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Restaurante Xablau V11</title>
+<style>
+body{font-family:Arial;margin:0;background:#f5f5f5}
+header{background:#c62828;color:#fff;padding:15px;text-align:center}
+nav{display:flex;justify-content:center;gap:10px;background:#fff;padding:10px}
+button{background:#c62828;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer}
+.small{padding:4px 8px;font-size:12px}
+.page{padding:15px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px}
+.card,.box{background:#fff;padding:12px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.hidden{display:none}
+.menu-img{width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px}
+.garcom-row{display:flex;align-items:center;justify-content:space-between;padding:8px 6px;border-radius:6px;background:#fafafa;margin-top:8px}
+.suggestions{background:#fff;border:1px solid #ddd;max-height:160px;overflow:auto;border-radius:6px;margin-top:4px}
+.suggestion-item{padding:8px;cursor:pointer}
+.suggestion-item:hover{background:#f0f0f0}
+/* Relatórios: grid responsivo e cards limpos */
+.reports-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
+.report-card{display:flex;flex-direction:column;padding:14px;border-radius:10px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);min-height:140px}
+.report-card h3{margin:0 0 8px 0;font-size:1.05rem}
+.report-body{flex:1;overflow:auto;max-height:420px;padding-top:6px}
+@media (max-width:1000px){.reports-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:640px){.reports-grid{grid-template-columns:1fr}.report-card{min-height:100px}}
+/* Estoque: linhas limpas com nome - quantidade e controles alinhados */
+.stock-row{display:flex;align-items:center;justify-content:space-between;padding:8px;border-bottom:1px solid #f0f0f0}
+.stock-name{font-weight:600;color:#222}
+.qty-badge{margin-left:8px;background:transparent;padding:2px 6px;border-radius:6px;font-weight:700}
+.stock-controls{display:flex;gap:6px}
+.stock-controls .small{min-width:36px;padding:6px 10px;border-radius:6px}
+/* Pedidos: cards organizados */
+.pedido-card{padding:12px;border-radius:8px;background:#fff;border:1px solid #eee;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
+.pedido-header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.pedido-meta{display:flex;gap:12px;flex-wrap:wrap;color:#555;font-size:0.95rem}
+.pedido-pratos{color:#333}
+.status-badge{padding:4px 8px;border-radius:6px;font-weight:700}
+.status-Preparando{background:#fff3e0;color:#e65100;border:1px solid #ffcc80}
+.status-Pronto{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
+.status-Entregue{background:#e3f2fd;color:#1565c0;border:1px solid #90caf9}
+.status-Finalizado\/Pago{background:#e8f5e9;color:#1b5e20;border:1px solid #66bb6a}
+/* Modal de login */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999}
+.modal{background:#fff;padding:18px;border-radius:10px;max-width:360px;width:92%;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.modal-backdrop.hidden{display:none}
+.modal h3{margin:0 0 8px 0}
+.modal .row{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.modal input{padding:8px;border:1px solid #ddd;border-radius:6px}
+.modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.modal .error{color:#c62828;font-weight:700}
+</style>
+</head>
+<body>
+<header><h1>🍽 Restaurante Xablau V11</h1></header>
+<nav>
+<button onclick="show('home')">Home</button>
+<button onclick="show('cadastros')">Cadastros</button>
+<button onclick="show('pedidos')">Pedidos</button>
+<button onclick="show('relatorios')">Relatórios</button>
+</nav>
+
+<div id="home" class="page">
+<h2>Cardápio</h2>
+<div id="menu" class="grid"></div>
+<div class="box" style="display:flex;flex-direction:column;gap:10px">
+<h3>Carrinho</h3>
+<div id="cartView"></div>
+<h3>Total: R$ <span id="total">0.00</span></h3>
+<button onclick="show('finalizacao')">Finalizar Pedido</button>
+</div>
+</div>
+
+<div id="finalizacao" class="page hidden">
+<div class="box" style="display:flex;flex-direction:column;align-items:stretch;gap:10px">
+	<label>Cliente</label>
+	<input style="padding:8px" id="cliente" placeholder="Digite o nome do cliente">
+	<div id="sugContainer" class="suggestions hidden"></div>
+	<div id="cpfContainer" class="hidden" style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+		<label>CPF</label>
+		<input style="padding:8px;width:100%" id="cpf" maxlength="14" placeholder="111.111.111-11">
+		<div id="cadClienteActions" style="display:flex;gap:8px;justify-content:flex-start;margin-top:6px">
+			<button onclick="salvarNovoCliente()">Salvar Cliente</button>
+			<button onclick="cancelarNovoCliente()" style="background:#777">Cancelar</button>
+		</div>
+	</div>
+	<div style="display:flex;gap:8px;flex-wrap:wrap">
+		<div style="flex:1;min-width:160px">
+			<label>Mesa</label>
+			<select style="width:100%" id="mesa"></select>
+			<div id="mesaStatusMsg" style="color:#c62828;font-weight:600;display:none;margin-top:6px"></div>
+		</div>
+		<div style="flex:1;min-width:160px">
+			<label>Garçom</label>
+			<select style="width:100%" id="garcomPedido"></select>
+		</div>
+		<div style="flex:1;min-width:160px">
+			<label>Pagamento</label>
+			<select style="width:100%" id="formaPagamento">
+				<option>PIX</option>
+				<option>Cartão</option>
+				<option>Espécie</option>
+			</select>
+		</div>
+	</div>
+	<div style="display:flex;justify-content:flex-end">
+		<button onclick="confirmarPedido()">Confirmar Pedido</button>
+	</div>
+</div>
+</div>
+
+<div id="cadastros" class="page hidden">
+	<div class="box">
+		<h3>Garçons</h3>
+		<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+			<input id="novoGarcom" placeholder="Novo garçom">
+			<input id="novoGarcomCpf" placeholder="CPF (opcional)" maxlength="14" style="min-width:160px">
+			<button onclick="addGarcom()">Adicionar</button>
+		</div>
+		<div id="garcons"></div>
+	</div>
+
+	<div class="box" style="margin-top:15px">
+		<h3>Clientes</h3>
+		<div id="clientesCadastro"></div>
+	</div>
+
+	<div class="box" style="margin-top:15px">
+		<h3>Cadastrar Prato</h3>
+		<input id="novoPratoNome" placeholder="Nome do prato">
+		<input id="novoPratoPreco" type="number" placeholder="Preço">
+		<input id="novoPratoEstoque" type="number" placeholder="Estoque">
+		<button onclick="addPrato()">Cadastrar Prato</button>
+		<div id="pratosList" style="margin-top:10px"></div>
+	</div>
+</div>
+
+<div id="pedidos" class="page hidden">
+<h2>Pedidos em Andamento</h2>
+<div id="pedidosAndamento"></div>
+<h2>Histórico</h2>
+<div id="historico"></div>
+</div>
+
+<div id="relatorios" class="page hidden">
+	<div class="reports-grid">
+		<div class="card report-card">
+			<h3>Faturamento do Restaurante</h3>
+			<div id="faturamento" class="report-body"></div>
+		</div>
+		<div class="card report-card">
+			<h3>Pratos Mais Pedidos</h3>
+			<div id="topPratos" class="report-body"></div>
+		</div>
+		<div class="card report-card">
+			<h3>Controle de Estoque</h3>
+			<div id="estoque" class="report-body"></div>
+		</div>
+	</div>
+</div>
+
+<!-- Modal de Login (aparece ao tentar acessar Cadastros/Relatórios) -->
+<div id="loginModal" class="modal-backdrop hidden">
+	<div class="modal">
+		<h3>Login - Acesso restrito</h3>
+		<div class="row">
+			<label>Usuário (nome ou CPF)</label>
+			<input id="loginUser" placeholder="Nome ou 111.111.111-11" maxlength="14" oninput="formatLoginUserCpf(this)">
+			<label>Senha</label>
+			<input id="loginPass" type="password" placeholder="Senha">
+			<div id="loginError" class="error" style="display:none">Usuário ou senha inválidos</div>
+		</div>
+		<div class="actions">
+			<button id="loginCancelBtn" type="button" style="background:#777">Cancelar</button>
+			<button id="loginSubmitBtn" type="button">Login</button>
+		</div>
+	</div>
+</div>
+
+<script>
+const produtos=[
+{id:1,nome:'Bife Acebolado',preco:22,estoque:20,imagem:'imagens/bife_acebolado.jpg.jpg'},
+{id:2,nome:'Baião de Dois',preco:15,estoque:20,imagem:'imagens/baiao-de-dois.jpg'},
+{id:3,nome:'Lasanha',preco:34,estoque:20,imagem:'imagens/lasanha.jpg'},
+{id:4,nome:'Coca Lata',preco:5,estoque:20,imagem:'imagens/coca_lata.jpg'},
+{id:5,nome:'Porção de Batata',preco:25,estoque:20,imagem:'imagens/porção_batata.jpg'},
+{id:6,nome:'Coxa de Frango',preco:19,estoque:20,imagem:'imagens/coxa_de_frango.jpg'},
+{id:7,nome:'Hamburguer X-Egg',preco:16,estoque:20,imagem:'imagens/x-egg.avif'},
+{id:8,nome:'Hamburguer X-Frango',preco:16,estoque:20,imagem:'imagens/x-frango.webp'},
+{id:9,nome:'Hamburguer X-Duplo',preco:16,estoque:20,imagem:'imagens/x-duplo.jpg'},
+{id:10,nome:'Hamburguer X-Bacon',preco:16,estoque:20,imagem:'imagens/x-bacon.jpg'},
+{id:11,nome:'Pizza de Chocolate',preco:66,estoque:20,imagem:'imagens/pizza_chocolate.png'},
+{id:12,nome:'Pizza Portuguesa',preco:66,estoque:20,imagem:'imagens/pizza-portuguesa.jpg'},
+{id:13,nome:'Pizza de Carne Seca',preco:66,estoque:20,imagem:'imagens/pizza-de-carne-seca.webp'},
+{id:14,nome:'Pizza de Calabresa',preco:66,estoque:20,imagem:'imagens/PIZZA-DE-CALABRESA.webp'},
+{id:15,nome:'Pizza de Frango com Catupiry',preco:66,estoque:20,imagem:'imagens/213355327-pizza-de-frango-com-catupiry.jpg'},
+{id:16,nome:'Misto Quente',preco:15,estoque:20,imagem:'imagens/misto-quente-gratinado.jpg'},
+{id:17,nome:'Macarronada a Bolonhesa',preco:45,estoque:20,imagem:'imagens/Macarrao-a-bolonhesa.jpg'},
+{id:18,nome:'Macarronada ao Molho Branco',preco:45,estoque:20,imagem:'imagens/macarronada-ao-molho-branco.jpeg'}
+];
+
+let cart=[];
+let pedidos=[];
+let listaGarcons=[
+	{nome:'Grazy',cpf:'777.777.777-77',senha:'123456'},
+	{nome:'Pablo',cpf:'888.88.888-88',senha:'123456'},
+	{nome:'Breno',cpf:'999.999.999-99',senha:'123456'},
+	{nome:'Luis',cpf:'444.555.555-44',senha:'123456'},
+	{nome:'Igor',cpf:'666.666.444-64',senha:'123456'}
+];
+let clientes=[
+{nome:'Levi',cpf:'111.111.111-11'},
+{nome:'Sasha',cpf:'222.222.222-22'}
+];
+const mesas=Array.from({length:15},(_,i)=>'Mesa '+(i+1));
+
+function show(id){
+	const protectedPages = ['cadastros','relatorios'];
+	if(protectedPages.includes(id) && !isAuthenticated()){
+		openLoginFor(id);
+		return;
+	}
+	document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+	document.getElementById(id).classList.remove('hidden');
+	if(id==='relatorios' && typeof atualizarRelatorios==='function') atualizarRelatorios();
+	if(id==='finalizacao') se(null);
+}
+
+// Autenticação simples: mantém estado em sessionStorage até recarregar a página
+function isAuthenticated(){
+	return !!sessionStorage.getItem('xablau_logged');
+}
+let loginTarget = null;
+function openLoginFor(target){
+	loginTarget = target;
+	const modal = document.getElementById('loginModal');
+	if(!modal) return;
+	document.getElementById('loginUser').value='';
+	document.getElementById('loginPass').value='';
+	const err = document.getElementById('loginError'); if(err) err.style.display='none';
+	modal.classList.remove('hidden');
+}
+function closeLogin(){
+	const modal = document.getElementById('loginModal'); if(!modal) return;
+	modal.classList.add('hidden');
+}
+function cancelLogin(){
+	const modal = document.getElementById('loginModal'); if(!modal) return;
+	modal.classList.add('hidden');
+	loginTarget = null;
+}
+// formatação auxiliar para campo de usuário (CPF)
+function formatLoginUserCpf(el){
+	try{
+		if(!el) return;
+		const raw = el.value || '';
+		const onlyDigits = raw.replace(/\D/g,'');
+		if(!onlyDigits) return; // não formatar nomes
+		let v = onlyDigits.slice(0,11);
+		let formatted = v;
+		if(v.length>9) formatted = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6,9)+'-'+v.slice(9,11);
+		else if(v.length>6) formatted = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6);
+		else if(v.length>3) formatted = v.slice(0,3)+'.'+v.slice(3);
+		el.value = formatted;
+	}catch(e){/* ignore */}
+}
+function performLogin(){
+	const u = (document.getElementById('loginUser').value||'').trim();
+	const p = document.getElementById('loginPass').value||'';
+	const err = document.getElementById('loginError');
+	if(!u || !p){ if(err){ err.innerText='Preencha usuário e senha'; err.style.display='block'; } return; }
+	// se usuário é um CPF (contém dígitos), exigir 11 números
+	const digits = u.replace(/\D/g,'');
+	if(digits.length>0 && digits.length!==11){ if(err){ err.innerText='CPF deve conter 11 dígitos'; err.style.display='block'; } return; }
+	// formatar o campo de usuário no padrão 111.111.111-11 quando for CPF válido
+	function formatCpf(d){
+		const v = (d||'').toString().slice(0,11);
+		if(v.length<=3) return v;
+		if(v.length<=6) return v.slice(0,3)+'.'+v.slice(3);
+		if(v.length<=9) return v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6);
+		return v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6,9)+'-'+v.slice(9,11);
+	}
+	if(digits.length===11){ try{ document.getElementById('loginUser').value = formatCpf(digits); }catch(e){} }
+	const normalize = s => (s||'').toString().replace(/\D/g,'');
+	const found = listaGarcons.find(g=>g.nome.toLowerCase()===u.toLowerCase() || normalize(g.cpf)===normalize(u));
+	if(!found || found.senha!==p){ if(err){ err.innerText='Usuário ou senha inválidos'; err.style.display='block'; } return; }
+	// sucesso
+	sessionStorage.setItem('xablau_logged', JSON.stringify({user:found.nome,cpf:found.cpf}));
+	const target = loginTarget;
+	closeLogin();
+	if(target){ loginTarget=null; show(target); }
+}
+
+function render(){
+const menu=document.getElementById('menu');
+menu.innerHTML='';
+produtos.forEach(p=>{
+		menu.innerHTML+=`<div class="card"><img src="${p.imagem||'imagens/x-egg.avif'}" class="menu-img"><h3>${p.nome}</h3><p>R$ ${p.preco.toFixed(2)}</p><p>Estoque: ${p.estoque}</p><button onclick="addCart(${p.id})">Adicionar</button></div>`;
+});
+
+document.getElementById('garcons').innerHTML=listaGarcons.map((g,i)=>
+	`<div class="garcom-row"><div>${g.nome}${g.cpf? ' — '+g.cpf : ''}</div><div><button class="small" onclick="delGarcom(${i})">Excluir</button></div></div>`
+).join('');
+
+document.getElementById('clientesCadastro').innerHTML=clientes.map((c,i)=>
+	`<div class="garcom-row"><div>${c.nome} — ${c.cpf}</div><div><button class="small" onclick="delCliente(${i})">Excluir</button></div></div>`
+).join('');
+
+
+// estoque é atualizado no relatório (read-only) — controle via aba Cadastros
+// (removido controles +/- daqui para manter Relatórios focado em métricas)
+// lista de pratos no cadastro
+document.getElementById('pratosList').innerHTML=produtos.map((p,i)=>
+	`<div class="garcom-row"><div>${p.nome} — R$ ${p.preco.toFixed(2)} (Estoque: ${p.estoque})</div><div><button class="small" onclick="delPrato(${i})">Excluir</button></div></div>`
+).join('');
+
+document.getElementById('garcomPedido').innerHTML=listaGarcons.map(g=>`<option>${g.nome}${g.cpf? ' — '+g.cpf : ''}</option>`).join('');
+document.getElementById('mesa').innerHTML=mesas.map(m=>`<option>${m}</option>`).join('');
+// atualizar indicação de mesa ocupada
+if(typeof atualizarStatusMesa==='function') atualizarStatusMesa();
+renderCart();
+
+}
+
+function addCart(id){
+	const p=produtos.find(x=>x.id===id);
+	const item=cart.find(x=>x.id===id);
+	// if no stock at all
+	if(p.estoque<=0){
+		if(item && item.qtd>0){
+			alert('Quantidade máxima selecionada');
+		} else {
+			alert('Erro, pedido esgotado!');
+		}
+		return;
+	}
+	// decrement stock and add to cart
+	p.estoque--;
+	if(item){
+		item.qtd++;
+	} else {
+		cart.push({id:p.id,nome:p.nome,preco:p.preco,qtd:1});
+	}
+	render();
+}
+
+function isMesaOcupada(mesa){
+	return pedidos.some(p=>p.mesa===mesa && p.status!=='Finalizado/Pago');
+}
+
+function atualizarStatusMesa(){
+	const sel=document.getElementById('mesa');
+	const msg=document.getElementById('mesaStatusMsg');
+	if(!sel || !msg) return;
+	const mesaSel=sel.value;
+	if(isMesaOcupada(mesaSel)){
+		msg.style.display='block'; msg.innerText='Mesa ocupada';
+	} else { msg.style.display='none'; }
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+	const sel=document.getElementById('mesa');
+	if(sel) sel.addEventListener('change',atualizarStatusMesa);
+});
+
+function renderCart(){
+let total=0;
+const area=document.getElementById('cartView');
+area.innerHTML='';
+cart.forEach((i,n)=>{
+total+=i.preco*i.qtd;
+area.innerHTML+=`${i.nome} (${i.qtd})
+<button class="small" onclick="aumentarQuantidade(${n})">+</button>
+<button class="small" onclick="remover(${n})">-</button><br>`;
+});
+document.getElementById('total').innerText=total.toFixed(2);
+}
+
+function remover(i){
+const produto=produtos.find(p=>p.id===cart[i].id);
+if(produto) produto.estoque++;
+cart[i].qtd--;
+if(cart[i].qtd<=0) cart.splice(i,1);
+render();
+}
+
+function aumentarQuantidade(i){
+	const prod=produtos.find(p=>p.id===cart[i].id);
+	if(!prod) return;
+	if(prod.estoque<=0){
+		alert('Quantidade máxima selecionada');
+		return;
+	}
+	prod.estoque--;
+	cart[i].qtd++;
+	render();
+}
+
+function confirmarPedido(){
+if(cart.length===0){alert('Carrinho vazio');return;}
+const nome=document.getElementById('cliente').value.trim();
+const cpf=document.getElementById('cpf').value.trim();
+const mesaSel=document.getElementById('mesa').value;
+// verificar se mesa está ocupada por pedido não finalizado
+if(isMesaOcupada(mesaSel)){alert('Mesa ocupada');return;}
+const garcomSel=document.getElementById('garcomPedido').value;
+const pagamento=document.getElementById('formaPagamento').value;
+if(!nome){alert('Informe o cliente');return;}
+
+// CPF handling and validation: cpf must be unique across clients
+const clientePorCpf = clientes.find(c=>c.cpf===cpf);
+const clientePorNome = clientes.find(c=>c.nome.toLowerCase()===nome.toLowerCase());
+
+	if(cpf){
+		if(clientePorCpf){
+			if(clientePorCpf.nome.toLowerCase()!==nome.toLowerCase()){
+				alert('erro, o cpf já possui um dono');return;
+			}
+			// else cpf belongs to same name -> ok
+		} else {
+			// cpf not found -> mostrar CPF+ações via função se
+			const encontrados = clientes.filter(c=>c.nome.toLowerCase().startsWith(nome.toLowerCase()));
+			const exactMatch = clientes.some(c=>c.nome.toLowerCase()===nome.toLowerCase());
+			se(nome,encontrados,exactMatch);
+			return;
+		}
+	} else {
+		// no cpf provided: try to autofill from name
+		if(clientePorNome){
+			// mostrar CPF + ações para nome exato (pré-preencher CPF)
+			document.getElementById('cpf').value=clientePorNome.cpf;
+			se(nome,[],true);
+			return;
+		} else {
+			// mostrar CPF+ações via função se (nome sem sugestão)
+			const encontrados = clientes.filter(c=>c.nome.toLowerCase().startsWith(nome.toLowerCase()));
+			const exactMatch = clientes.some(c=>c.nome.toLowerCase()===nome.toLowerCase());
+			se(nome,encontrados,exactMatch);
+			return;
+		}
+	}
+const total=cart.reduce((a,b)=>a+b.preco*b.qtd,0);
+const itensArray = cart.map(item=>({id:item.id,nome:item.nome,qtd:item.qtd,preco:item.preco}));
+const pratosEscolhidos=itensArray.map(i=>`${i.nome} (${i.qtd})`).join(', ');
+cart.forEach(item=>{
+ let p=produtos.find(x=>x.id===item.id);
+ if(p){p.estoque=Math.max(0,p.estoque-item.qtd);} 
+});
+pedidos.push({cliente:nome,cpf,total,mesa:mesaSel,garcom:garcomSel,pagamento,pratos:pratosEscolhidos,itens:itensArray,data:new Date().toLocaleString('pt-BR'),status:'Preparando'});
+renderPedidos();
+cart=[];
+renderCart();
+document.getElementById('cliente').value='';
+document.getElementById('cpf').value='';
+document.getElementById('mesa').selectedIndex=0;
+document.getElementById('garcomPedido').selectedIndex=0;
+document.getElementById('formaPagamento').selectedIndex=0;
+alert('Pedido confirmado');
+show('pedidos');
+}
+
+function addGarcom(){
+	const n=document.getElementById('novoGarcom').value.trim();
+	const cpf=document.getElementById('novoGarcomCpf').value.trim();
+	if(!n) return;
+	listaGarcons.push({nome:n,cpf:cpf});
+	document.getElementById('novoGarcom').value='';
+	document.getElementById('novoGarcomCpf').value='';
+	render();
+}
+function delGarcom(i){
+	if(listaGarcons.length<=1){alert('O restaurante não pode ficar sem funcionários');return;}
+	listaGarcons.splice(i,1);render();
+}
+function delCliente(i){
+	if(!confirm('Excluir este cliente?')) return;
+	clientes.splice(i,1);
+	render();
+}
+
+
+function proximoStatus(index){
+let pedido=pedidos[index];
+
+if(pedido.status==='Preparando'){
+pedido.status='Pronto';
+}
+else if(pedido.status==='Pronto'){
+pedido.status='Entregue';
+}
+else if(pedido.status==='Entregue'){
+if(confirm('Pagamento confirmado?')){
+pedido.status='Finalizado/Pago';
+}else{
+return;
+}
+}
+	// re-render pedidos e relatórios após alteração de status
+	renderPedidos();
+}
+// previous duplicate renderPedidos removed; single definition below handles both andamento and historico
+
+
+function addPrato(){
+const nome=document.getElementById('novoPratoNome').value;
+const preco=parseFloat(document.getElementById('novoPratoPreco').value||0);
+const estoque=parseInt(document.getElementById('novoPratoEstoque').value||0);
+if(!nome)return;
+produtos.push({id:Date.now(),nome,preco,estoque});
+alert('Prato Cadastrado');
+document.getElementById('novoPratoNome').value='';
+document.getElementById('novoPratoPreco').value='';
+document.getElementById('novoPratoEstoque').value='';
+render();
+}
+
+function delPrato(i){
+	if(!confirm('Excluir este prato do cardápio?')) return;
+	produtos.splice(i,1);
+	render();
+}
+
+function atualizarRelatorios(){
+	const faturamento = pedidos.filter(p=>p.status==='Finalizado/Pago')
+		.reduce((a,b)=>a+b.total,0);
+
+	document.getElementById('faturamento').innerText = 'R$ '+faturamento.toFixed(2);
+
+	// calcular pratos mais pedidos (agrega tanto pedidos antigos em string quanto novos com 'itens')
+	const counts = {};
+	pedidos.forEach(p=>{
+		if(p.itens && Array.isArray(p.itens)){
+			p.itens.forEach(it=>{ counts[it.nome] = (counts[it.nome]||0) + (it.qtd||0); });
+		} else if(p.pratos){
+			p.pratos.split(',').forEach(part=>{
+				const m = part.trim().match(/^(.*?)\s*\((\d+)\)$/);
+				if(m){ counts[m[1]] = (counts[m[1]]||0) + parseInt(m[2],10); }
+			});
+		}
+	});
+	const sorted = Object.keys(counts).map(k=>({nome:k,qtd:counts[k]})).sort((a,b)=>b.qtd-a.qtd);
+	const top = sorted.slice(0,10);
+	document.getElementById('topPratos').innerHTML = top.length ? top.map((t,i)=>`<div>${i+1}. ${t.nome} — ${t.qtd} pedido(s)</div>`).join('') : '<div>Nenhum pedido registrado</div>';
+
+	// relatório de estoque com controles +/-
+	document.getElementById('estoque').innerHTML = produtos.map((p,i)=>{
+		const low = p.estoque<=5 ? ' <span style="color:#c62828">(Baixo)</span>' : '';
+		return `
+			<div class="stock-row">
+				<div class="stock-name">${p.nome} <span class="qty-badge">- ${p.estoque}${low}</span></div>
+				<div class="stock-controls">
+					<button class="small" title="Diminuir" onclick="decEstoque(${i})">−</button>
+					<button class="small" title="Aumentar" onclick="incEstoque(${i})">+</button>
+				</div>
+			</div>`;
+	}).join('');
+}
+
+function incEstoque(i){
+	produtos[i].estoque = (produtos[i].estoque||0) + 1;
+	atualizarRelatorios(); render();
+}
+
+function decEstoque(i){
+	produtos[i].estoque = Math.max(0,(produtos[i].estoque||0) - 1);
+	atualizarRelatorios(); render();
+}
+
+function renderPedidos(){
+	const andamento = pedidos.filter(p=>p.status!=='Finalizado/Pago');
+	const historicoFinal = pedidos.filter(p=>p.status==='Finalizado/Pago');
+
+	document.getElementById('pedidosAndamento').innerHTML = andamento.map((p,i)=>`
+		<div class="pedido-card">
+			<div class="pedido-header">
+				<div><strong>${p.cliente}</strong></div>
+				<div class="pedido-meta">
+					<div>Mesa: ${p.mesa}</div>
+					<div>Valor: R$ ${p.total.toFixed(2)}</div>
+					<div>${p.data}</div>
+				</div>
+				<div><span class="status-badge">${p.status}</span></div>
+			</div>
+			<div class="pedido-pratos">Pratos: ${p.pratos||''}</div>
+			<div style="display:flex;justify-content:flex-end"><button onclick="proximoStatus(${pedidos.indexOf(p)})">Próximo Status</button></div>
+		</div>`).join('');
+
+	document.getElementById('historico').innerHTML = historicoFinal.map(p=>`
+		<div class="pedido-card">
+			<div class="pedido-header">
+				<div><strong>${p.cliente}</strong></div>
+				<div class="pedido-meta">
+					<div>Mesa: ${p.mesa}</div>
+					<div>Valor: R$ ${p.total.toFixed(2)}</div>
+					<div>${p.data}</div>
+				</div>
+				<div><span class="status-badge">${p.status}</span></div>
+			</div>
+			<div class="pedido-pratos">Pratos: ${p.pratos||''}</div>
+		</div>`).join('');
+
+	atualizarRelatorios();
+	if(typeof atualizarStatusMesa==='function') atualizarStatusMesa();
+}
+
+
+document.getElementById('cpf').addEventListener('input',function(e){
+	let v=e.target.value.replace(/\D/g,'');
+	v=v.replace(/(\d{3})(\d)/,'$1.$2');
+	v=v.replace(/(\d{3})(\d)/,'$1.$2');
+	v=v.replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+	e.target.value=v;
+});
+
+// mask for novoGarcomCpf (se existir)
+if(document.getElementById('novoGarcomCpf')){
+	document.getElementById('novoGarcomCpf').addEventListener('input',function(e){
+		let v=e.target.value.replace(/\D/g,'');
+		v=v.replace(/(\d{3})(\d)/,'$1.$2');
+		v=v.replace(/(\d{3})(\d)/,'$1.$2');
+		v=v.replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+		e.target.value=v;
+	});
+}
+
+function novoCliente(){
+	document.getElementById('cliente').value='';
+	document.getElementById('cpf').value='';
+}
+
+// Função 'se' que controla quando mostrar CPF e botões de salvar/cancelar
+function se(q,encontrados,exactMatch){
+	const cpfCont = document.getElementById('cpfContainer');
+	const sug = document.getElementById('sugContainer');
+	if(!q || q.trim()===''){
+		if(cpfCont) cpfCont.classList.add('hidden');
+		return;
+	}
+	if((encontrados && encontrados.length===0) || exactMatch){
+		if(cpfCont) cpfCont.classList.remove('hidden');
+		if(sug) sug.classList.add('hidden');
+		// Se for correspondência exata, focar o CPF; se for nome novo, permitir continuar digitando o nome
+		if(exactMatch){ const cpfEl = document.getElementById('cpf'); if(cpfEl) cpfEl.focus(); }
+	} else {
+		if(cpfCont) cpfCont.classList.add('hidden');
+	}
+}
+
+function atualizarSugestoes(){
+	const raw=document.getElementById('cliente').value;
+	const q=raw.trim().toLowerCase();
+	const container=document.getElementById('sugContainer');
+	if(!q){container.classList.add('hidden');container.innerHTML=''; se(null); return;}
+	// sugestões por prefixo (inicial/começo)
+	const encontrados=clientes.filter(c=>c.nome.toLowerCase().startsWith(q));
+	let html='';
+	encontrados.forEach((c,i)=>{
+		html+=`<div class="suggestion-item" onclick="selecionarCliente(decodeURIComponent('${encodeURIComponent(c.nome)}'),decodeURIComponent('${encodeURIComponent(c.cpf)}'))">${c.nome} — ${c.cpf}</div>`;
+	});
+	const exactMatch = clientes.some(c=>c.nome.toLowerCase()===q);
+	if(encontrados.length>0){ container.innerHTML=html; container.classList.remove('hidden'); }
+	else { container.innerHTML=''; container.classList.add('hidden'); }
+	se(q,encontrados,exactMatch);
+}
+
+function selecionarCliente(nome,cpf){
+	document.getElementById('cliente').value=nome;
+	const cpfEl = document.getElementById('cpf'); if(cpfEl) cpfEl.value=cpf;
+	document.getElementById('sugContainer').classList.add('hidden');
+	// esconder o container unificado via função se
+	se(null);
+}
+
+function abrirCadastroNovo(nome){
+	document.getElementById('cliente').value=nome||'';
+	const cpfEl = document.getElementById('cpf'); if(cpfEl) cpfEl.value='';
+	se(nome,[],false);
+	const cpfField = document.getElementById('cpf'); if(cpfField) cpfField.focus();
+}
+
+function cancelarNovoCliente(){
+	// usar função se para centralizar comportamento
+	se(null);
+	const cpfEl = document.getElementById('cpf'); if(cpfEl) cpfEl.value='';
+	const nomeEl = document.getElementById('cliente'); if(nomeEl) nomeEl.value='';
+}
+
+function salvarNovoCliente(){
+	const nome=document.getElementById('cliente').value.trim();
+	const cpf=document.getElementById('cpf').value.trim();
+	if(!nome||!cpf){alert('Preencha nome e CPF');return;}
+	if(clientes.find(c=>c.cpf===cpf)){alert('erro, o cpf já possui um dono');return;}
+	clientes.push({nome,cpf});
+	const cpfCont = document.getElementById('cpfContainer'); if(cpfCont) cpfCont.classList.add('hidden');
+	document.getElementById('sugContainer').classList.add('hidden');
+	render();
+	alert('cliente cadastrado com sucesso!');
+}
+
+document.getElementById('cliente').addEventListener('input',function(){ atualizarSugestoes(); });
+
+render();
+// Anexar listeners dos botões do modal de login (mais robusto que onclick inline)
+try{
+	const btnCancel = document.getElementById('loginCancelBtn');
+	const btnSubmit = document.getElementById('loginSubmitBtn');
+	if(btnCancel) btnCancel.addEventListener('click', cancelLogin);
+	if(btnSubmit) btnSubmit.addEventListener('click', performLogin);
+}catch(e){ console.warn('Erro ao anexar listeners do modal',e); }
+// formatar campo de usuário como CPF quando o usuário digita apenas dígitos
+try{
+	const loginUser = document.getElementById('loginUser');
+	if(loginUser){
+		loginUser.addEventListener('input', function(e){
+			const raw = this.value || '';
+			const onlyDigits = raw.replace(/\D/g,'');
+			// se houver apenas dígitos e possivelmente separadores, aplicar máscara
+			if(onlyDigits.length>0 && /^[0-9.\- ]*$/.test(raw)){
+				let v = onlyDigits.slice(0,11);
+				let formatted = v;
+				if(v.length>9){ formatted = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6,9)+'-'+v.slice(9,11); }
+				else if(v.length>6){ formatted = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6); }
+				else if(v.length>3){ formatted = v.slice(0,3)+'.'+v.slice(3); }
+				this.value = formatted;
+			}
+		});
+	}
+}catch(e){ console.warn('Erro ao anexar formatter do loginUser',e); }
+
+// Garantir que os botões da nav chamem `show(id)` via listener para forçar checagem de autenticação
+try{
+	document.querySelectorAll('nav button').forEach(btn=>{
+		const onclick = btn.getAttribute('onclick');
+		if(!onclick) return;
+		const m = onclick.match(/show\('([^']+)'\)/);
+		if(m){
+			const id = m[1];
+			btn.removeAttribute('onclick');
+			btn.addEventListener('click',()=> show(id));
+		}
+	});
+}catch(e){ console.warn('Erro ao anexar listeners da nav',e); }
+</script>
+</body>
+</html>
